@@ -12,7 +12,7 @@ from banws.dicts import NodeWebsocketResponse
 logging.basicConfig(format="%(message)s", level=logging.INFO)
 
 with open("users.json") as f:
-    users: dict = {user["address"]: user for user in json.load(f)}
+    users: dict = {user["address"]: {**user, 'user_id': str(user['user_id'])} for user in json.load(f)}
 
 CONNECTIONS = set()
 
