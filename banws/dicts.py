@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 
 class Block(TypedDict):
@@ -28,3 +28,9 @@ class NodeWebsocketResponse(TypedDict):
     topic: str
     time: str
     message: ConfirmationMessage
+
+
+class Options(TypedDict):
+    filter: Literal["all", "discord"]
+    blocktypes: list[Literal["send", "receive", "change"]]
+    accounts: list[str]
