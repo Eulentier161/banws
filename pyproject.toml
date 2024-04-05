@@ -4,8 +4,8 @@ line-length = 120
 [tool.poetry]
 name = "banws"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "small websocket proxy for a banano node"
+authors = ["Eulentier <git@eule.wtf>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -13,10 +13,13 @@ python = "^3.12"
 httpx = "^0.27.0"
 websockets = "^12.0"
 cachetools = "^5.3.3"
-
+typer = { version = "^0.12.1", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.3.0"
+
+[tool.poetry.scripts]
+banws = "banws.run:app"
 
 [build-system]
 requires = ["poetry-core"]

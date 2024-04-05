@@ -5,8 +5,10 @@ import re
 from datetime import datetime, timedelta
 
 import httpx
+import typer
 import websockets
 from cachetools.func import ttl_cache
+from typing_extensions import Annotated
 
 from banws.dicts import NodeWebsocketResponse, Options
 
@@ -14,6 +16,7 @@ logging.basicConfig(format="%(message)s", level=logging.INFO)
 
 
 CONNECTIONS: dict[websockets.WebSocketServerProtocol, Options] = dict()
+app = typer.Typer()
 
 
 @ttl_cache(maxsize=1, ttl=timedelta(minutes=30), timer=datetime.now)
@@ -41,8 +44,8 @@ def early_skip(resp: NodeWebsocketResponse):
     return False
 
 
-async def source(ws_uri: str):
-    async for client in websockets.connect(ws_uri):
+async def source(ws_url: str):
+    async for client in websockets.connect(ws_url):
         try:
             await client.send('{"action": "subscribe", "topic": "confirmation"}')
             async for message in client:
@@ -152,9 +155,30 @@ async def server(ws: websockets.WebSocketServerProtocol):
         del CONNECTIONS[ws]
 
 
-async def main():
-    await asyncio.gather(websockets.serve(server, "localhost", 8765), source("ws://localhost:7074"))
+async def start_server(serve_host: str, serve_port: int, node_host: str, node_port: int):
+    await asyncio.gather(
+        websockets.serve(server, host=serve_host, port=serve_port), source(f"ws://{node_host}:{node_port}")
+    )
+
+
+@app.command()
+def main(
+    serve_host: Annotated[
+        str, typer.Option("--serve_host", "-sh", help="host for serving the new websocket", rich_help_panel="Server")
+    ] = "localhost",
+    serve_port: Annotated[
+        int, typer.Option("--serve_port", "-sp", help="port for serving the new websocket", rich_help_panel="Server")
+    ] = 8765,
+    node_host: Annotated[
+        str, typer.Option("--node_host", "-nh", help="host of the banano node websocket", rich_help_panel="Node")
+    ] = "localhost",
+    node_port: Annotated[
+        int, typer.Option("--node_port", "-np", help="port of the banano node websocket", rich_help_panel="Node")
+    ] = 7074,
+):
+    """start the banano websocket proxy"""
+    asyncio.run(start_server(serve_host, serve_port, node_host, node_port))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app()
