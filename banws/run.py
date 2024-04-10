@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta
 
@@ -8,12 +9,14 @@ import httpx
 import typer
 import websockets
 from cachetools.func import ttl_cache
+from dotenv import load_dotenv
 from typing_extensions import Annotated
 
 from banws.dicts import NodeWebsocketResponse, Options
 
-logging.basicConfig(format="%(message)s", level=logging.INFO)
-
+logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
+load_dotenv()
+BANANOBOT_TOKEN = os.getenv("BANANOBOT_TOKEN")
 
 CONNECTIONS: dict[websockets.WebSocketServerProtocol, Options] = dict()
 app = typer.Typer()
@@ -21,7 +24,7 @@ app = typer.Typer()
 
 @ttl_cache(maxsize=1, ttl=timedelta(minutes=30), timer=datetime.now)
 def get_users():
-    res = httpx.get("https://bananobotapi.banano.cc/users")
+    res = httpx.get("https://bananobotapi.banano.cc/users", headers={"Authorization": BANANOBOT_TOKEN})
     return {user["address"]: {**user, "user_id": str(user["user_id"])} for user in res.json()}
 
 
@@ -34,9 +37,9 @@ def get_known():
 def early_skip(resp: NodeWebsocketResponse):
     connections_options = CONNECTIONS.values()
     blocktypes, accounts = set(), set()
-    for connection_options in connections_options:
-        blocktypes.update(connection_options["blocktypes"])
-        accounts.update(connection_options["accounts"])
+    for connection_option in connections_options:
+        blocktypes.update(connection_option["blocktypes"])
+        accounts.update(connection_option["accounts"])
     if not resp["message"]["block"]["subtype"] in blocktypes:
         return True
     if not resp["message"]["account"] in accounts and not any(c["accounts"] == [] for c in connections_options):
@@ -157,7 +160,8 @@ async def server(ws: websockets.WebSocketServerProtocol):
 
 async def start_server(serve_host: str, serve_port: int, node_host: str, node_port: int):
     await asyncio.gather(
-        websockets.serve(server, host=serve_host, port=serve_port), source(f"ws://{node_host}:{node_port}")
+        websockets.serve(server, host=serve_host, port=serve_port),
+        source(f"ws://{node_host}:{node_port}"),
     )
 
 
@@ -177,6 +181,7 @@ def main(
     ] = 7074,
 ):
     """start the banano websocket proxy"""
+    assert BANANOBOT_TOKEN
     asyncio.run(start_server(serve_host, serve_port, node_host, node_port))
 
 
