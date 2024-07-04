@@ -24,14 +24,30 @@ app = typer.Typer()
 
 @ttl_cache(maxsize=1, ttl=timedelta(minutes=30), timer=datetime.now)
 def get_users():
-    res = httpx.get("https://bananobotapi.banano.cc/users", headers={"Authorization": BANANOBOT_TOKEN})
-    return {user["address"]: {**user, "user_id": str(user["user_id"])} for user in res.json()}
+    try:
+        res = httpx.get("https://bananobotapi.banano.cc/users", headers={"Authorization": BANANOBOT_TOKEN})
+        data = {user["address"]: {**user, "user_id": str(user["user_id"])} for user in res.json()}
+        with open("users.json", "w+") as f:
+            json.dump(data, f)
+    except httpx.HTTPError:
+        with open("users.json") as f:
+            data = json.load(f)
+
+    return data
 
 
 @ttl_cache(maxsize=1, ttl=timedelta(minutes=30), timer=datetime.now)
 def get_known():
-    res = httpx.post("https://api.spyglass.eule.wtf/banano/v1/known/accounts")
-    return {e["address"]: e["alias"] for e in res.json()}
+    try:
+        res = httpx.post("https://api.spyglass.eule.wtf/banano/v1/known/accounts")
+        data = {e["address"]: e["alias"] for e in res.json()}
+        with open("known.json", "w+") as f:
+            json.dump(data, f)
+    except httpx.HTTPError:
+        with open("known.json") as f:
+            data = json.load(f)
+
+    return data
 
 
 def early_skip(resp: NodeWebsocketResponse):
@@ -147,7 +163,7 @@ async def server(ws: websockets.WebSocketServerProtocol):
                 assert isinstance(accounts, list)
                 for account in accounts:
                     assert isinstance(account, str)
-                    assert re.match(r"^(ban)_[13]{1}[13456789abcdefghijkmnopqrstuwxyz]{59}$", account)
+                    assert re.match(r"^(ban)_[13][13456789abcdefghijkmnopqrstuwxyz]{59}$", account)
             except AssertionError:
                 await ws.send('error: "accounts" has to be an array of valid banano public addresses')
                 continue
